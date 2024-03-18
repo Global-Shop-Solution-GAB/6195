@@ -1,0 +1,1031 @@
+﻿Program.Sub.ScreenSU.Start
+Gui.F_Main..Create
+Gui.F_Main..Caption("Quote Vs. Actual Dashboard")
+Gui.F_Main..Size(11070,7995)
+Gui.F_Main..MinX(0)
+Gui.F_Main..MinY(0)
+Gui.F_Main..Position(0,0)
+Gui.F_Main..MousePointer(0)
+Gui.F_Main..Event(UnLoad,F_Main_UnLoad)
+Gui.F_Main..BackColor(-2147483633)
+Gui.F_Main.frameOrder.Create(Frame)
+Gui.F_Main.frameOrder.Enabled(False)
+Gui.F_Main.frameOrder.Size(1515,600)
+Gui.F_Main.frameOrder.Position(120,180)
+Gui.F_Main.frameOrder.BorderStyle(3)
+Gui.F_Main.ddlOrder.Create(DropDownList)
+Gui.F_Main.ddlOrder.Size(1320,300)
+Gui.F_Main.ddlOrder.Position(105,225)
+Gui.F_Main.ddlOrder.Parent("frameOrder")
+Gui.F_Main.optOrder.Create(Option)
+Gui.F_Main.optOrder.Size(1215,360)
+Gui.F_Main.optOrder.Position(195,30)
+Gui.F_Main.optOrder.Caption("Sales Order")
+Gui.F_Main.optOrder.Event(Click,optSelection_Click)
+Gui.F_Main.frameDate.Create(Frame)
+Gui.F_Main.frameDate.Enabled(False)
+Gui.F_Main.frameDate.Size(3450,600)
+Gui.F_Main.frameDate.Position(1725,180)
+Gui.F_Main.frameDate.BorderStyle(3)
+Gui.F_Main.dtpShipBegin.Create(DatePicker)
+Gui.F_Main.dtpShipBegin.Size(1410,300)
+Gui.F_Main.dtpShipBegin.Position(90,210)
+Gui.F_Main.dtpShipBegin.Parent("frameDate")
+Gui.F_Main.dtpShipBegin.Event(Change,dtpShip_Change)
+Gui.F_Main.lblShipThru.Create(Label,"thru",True,300,195,0,1590,255,True,0,"Tahoma",8,-2147483633,0)
+Gui.F_Main.lblShipThru.Parent("frameDate")
+Gui.F_Main.dtpShipEnd.Create(DatePicker)
+Gui.F_Main.dtpShipEnd.Size(1410,300)
+Gui.F_Main.dtpShipEnd.Position(1965,210)
+Gui.F_Main.dtpShipEnd.Parent("frameDate")
+Gui.F_Main.dtpShipEnd.Event(Change,dtpShip_Change)
+Gui.F_Main.optDate.Create(Option)
+Gui.F_Main.optDate.Size(1080,360)
+Gui.F_Main.optDate.Position(1815,30)
+Gui.F_Main.optDate.Caption("Ship Date")
+Gui.F_Main.optDate.Event(Click,optSelection_Click)
+Gui.F_Main.cmdRefresh.Create(Button)
+Gui.F_Main.cmdRefresh.Size(405,405)
+Gui.F_Main.cmdRefresh.Position(6960,270)
+Gui.F_Main.cmdRefresh.Caption("Refresh")
+Gui.F_Main.cmdRefresh.Event(Click,cmdRefresh_Click)
+Gui.F_Main.gsgcEstVsAct.Create(GsGridControl)
+Gui.F_Main.gsgcEstVsAct.Size(11025,6675)
+Gui.F_Main.gsgcEstVsAct.Position(0,840)
+Gui.F_Main.gsgcEstVsAct.Anchor(15)
+Gui.F_Main.gsgcEstVsAct.Event(RowCellClick,gsgcEstVsAct_RowCellClick)
+Gui.F_Main.frameLink.Create(Frame)
+Gui.F_Main.frameLink.Size(1650,600)
+Gui.F_Main.frameLink.Position(9255,180)
+Gui.F_Main.frameLink.BorderStyle(3)
+Gui.F_Main.frameLink.Anchor(9)
+Gui.F_Main.optEdit.Create(Option)
+Gui.F_Main.optEdit.Enabled(False)
+Gui.F_Main.optEdit.Size(735,255)
+Gui.F_Main.optEdit.Position(975,165)
+Gui.F_Main.optEdit.Parent("frameLink")
+Gui.F_Main.optEdit.Caption("Edit")
+Gui.F_Main.optView.Create(Option)
+Gui.F_Main.optView.Enabled(False)
+Gui.F_Main.optView.Size(780,255)
+Gui.F_Main.optView.Position(120,165)
+Gui.F_Main.optView.Parent("frameLink")
+Gui.F_Main.optView.Caption("View")
+Gui.F_Main.optAllSO.Create(Option)
+Gui.F_Main.optAllSO.Size(1620,360)
+Gui.F_Main.optAllSO.Position(5295,30)
+Gui.F_Main.optAllSO.Caption("All Open Orders")
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+Program.External.Include.Library("GCG_6195_ErrorHandling.lib")
+V.Global.bSAVEcon.Declare
+V.Global.bQTEcon.Declare
+V.Global.bORDcon.Declare
+V.Global.bLOADcon.Declare
+V.Global.bCHKcon.Declare
+V.Global.bWOOpen.Declare
+V.Global.bWOView.Declare
+Program.External.Include.Library("450000.lib")
+Program.External.Include.Library("2009.lib")
+Program.External.Include.Library("1500.lib")
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+'Author: BixRB
+'Date: 24 Nov 2020
+'GCG_6195_EstvsAct_Costs.g2u
+'Fidelity Machine & Mould Soln
+'Get cost element buildup and save to custom table. Display in dashboard view
+V.Local.sQuoteNo.Declare
+V.Local.sParts.Declare
+V.Local.sQtys.Declare
+V.Local.sOrderNo.Declare
+V.Local.sOrderLine.Declare
+V.Local.sSQL.Declare
+V.Local.iCnt.Declare
+V.Local.dStart.Declare
+V.Local.iMinutes.Declare
+F.Intrinsic.Control.Try
+
+F.Intrinsic.Control.SelectCase(V.Caller.Hook)
+	F.Intrinsic.Control.Case(11560)
+		'Order Header Populate Hook
+		'000003 - Order No
+		F.Intrinsic.Control.If(V.Passed.000003.Trim,=,"")
+			F.Intrinsic.Control.End
+		F.Intrinsic.Control.EndIf
+		
+		F.Intrinsic.String.LPad(V.Passed.000003,"0",7,V.Local.sOrderNo)
+		
+		F.Intrinsic.Control.CallSub(GetOrderLines,"Orders",V.Local.sOrderNo,"Line","","Quotes","")
+		F.Intrinsic.Control.If(V.DataTable.dtOrderLines.RowCount,=,0)
+			F.Intrinsic.Control.End
+		F.Intrinsic.Control.EndIf
+		F.Data.DataTable.ColumnToString("dtOrderLines","PART",V.Local.sParts)
+		F.Data.DataTable.ColumnToString("dtOrderLines","QTY_QUOTE",V.Local.sQtys)
+		
+		F.Intrinsic.String.Replace(V.Local.sParts,"*.*","*!*",V.Local.sParts)
+		F.Intrinsic.String.Replace(V.Local.sQtys,"*.*","*!*",V.Local.sQtys)
+		
+		F.Intrinsic.Control.CallSub(GetInventoryCostsAndLaborHours,"Parts",V.Local.sParts,"Qtys",V.Local.sQtys)
+		
+		F.Intrinsic.Control.If(V.DataTable.dtRtrInfo.Exists)
+			F.Data.Linq.Join("LeftJoin","DataTable","dtOrderLines*!*ORD","DataTable","dtRtrInfo*!*RTR","ORD.PART = RTR.ROUTER","ORD.ORDER_NO*!*ORD.ORDER_LINE*!*ORD.QUOTE_NO*!*ORD.QUOTE_LINE*!*ORD.QTY_QUOTE*!*ORD.PART*!*RTR.LABOR_COST*!*RTR.OVERHEAD_COST*!*RTR.MATERIAL_COST*!*RTR.OUTSIDE_COST*!*RTR.LABOR_HOURS","","","","dtSave",False)
+			
+			F.Data.DataTable.Close("dtOrderLines")
+			F.Data.DataTable.Close("dtRtrInfo")
+		F.Intrinsic.Control.Else
+			F.Data.DataTable.Create("dtSave",False)
+			F.Data.DataTable.AddColumn("dtSave","ORDER_NO","String")
+			F.Data.DataTable.AddColumn("dtSave","ORDER_LINE","String")
+			F.Data.DataTable.AddColumn("dtSave","QUOTE_NO","String")
+			F.Data.DataTable.AddColumn("dtSave","QUOTE_LINE","String")
+			F.Data.DataTable.AddColumn("dtSave","QTY_QUOTE","String")
+			F.Data.DataTable.AddColumn("dtSave","PART","String")
+			F.Data.DataTable.AddColumn("dtSave","LABOR_COST","Float",0)
+			F.Data.DataTable.AddColumn("dtSave","OVERHEAD_COST","Float",0)
+			F.Data.DataTable.AddColumn("dtSave","MATERIAL_COST","Float",0)
+			F.Data.DataTable.AddColumn("dtSave","OUTSIDE_COST","Float",0)
+			F.Data.DataTable.AddColumn("dtSave","LABOR_HOURS","Float",0)
+			
+			F.Data.DataTable.Merge("dtOrderLines","dtSave",True,2)
+			
+			F.Data.DataTable.Close("dtOrderLines")
+		F.Intrinsic.Control.EndIf
+		
+		F.Data.DataView.Create("dtSave","dvSave")
+		'handle those without a router
+		F.Data.DataView.SetFilter("dtSave","dvSave","isnull([LABOR_COST], 0) = 0")
+		F.Data.DataView.SetValue("dtSave","dvSave",-1,"LABOR_COST",0)
+		F.Data.DataView.SetFilter("dtSave","dvSave","isnull([OVERHEAD_COST], 0) = 0")
+		F.Data.DataView.SetValue("dtSave","dvSave",-1,"OVERHEAD_COST",0)
+		F.Data.DataView.SetFilter("dtSave","dvSave","isnull([MATERIAL_COST], 0) = 0")
+		F.Data.DataView.SetValue("dtSave","dvSave",-1,"MATERIAL_COST",0)
+		F.Data.DataView.SetFilter("dtSave","dvSave","isnull([OUTSIDE_COST], 0) = 0")
+		F.Data.DataView.SetValue("dtSave","dvSave",-1,"OUTSIDE_COST",0)
+		F.Data.DataView.SetFilter("dtSave","dvSave","isnull([LABOR_HOURS], 0) = 0")
+		F.Data.DataView.SetValue("dtSave","dvSave",-1,"LABOR_HOURS",0)
+		
+		'need to edit those with a Quote Record already in the table
+		F.ODBC.Connection!SAVEcon.OpenCompanyConnection
+		V.Global.bSAVEcon.Set(True)
+		F.Intrinsic.Control.For(V.Local.iCnt,V.DataTable.dtSave.RowCount--,0,-1)
+			'First check if the Order Line has a record
+			F.Intrinsic.String.Build("select 1 from GCG_6195_ESTACT where ORDER_NO = '{0}' and ORDER_LINE = '{1}'",V.DataTable.dtSave(V.Local.iCnt).ORDER_NO!FieldVal,V.DataTable.dtSave(V.Local.iCnt).ORDER_LINE!FieldVal,V.Local.sSQL)
+			F.ODBC.Connection!SAVEcon.ExecuteAndReturn(V.Local.sSQL,V.Local.sSQL)
+			F.Intrinsic.Control.If(V.Ambient.ExecuteAndReturnEOF.Not)
+				'Delete record in save table
+				F.Data.DataTable.DeleteRow("dtSave",V.Local.iCnt)
+			F.Intrinsic.Control.ElseIf(V.DataTable.dtSave(V.Local.iCnt).QUOTE_NO!FieldVal,!=,"")
+				F.Intrinsic.String.Build("select LABOR_COST, OVERHEAD_COST, MATERIAL_COST, OUTSIDE_COST, LABOR_HOURS from GCG_6195_ESTACT where QUOTE_NO = '{0}' and QUOTE_LINE = '{1}' and ORDER_NO = '' and ORDER_LINE = '';",V.DataTable.dtSave(V.Local.iCnt).QUOTE_NO!FieldVal,V.DataTable.dtSave(V.Local.iCnt).QUOTE_LINE!FieldVal,V.Local.sSQL)
+				F.ODBC.Connection!SAVEcon.ExecuteAndReturn(V.Local.sSQL,V.Local.sSQL)
+				F.Intrinsic.Control.If(V.Ambient.ExecuteAndReturnEOF.Not)
+					'Found, update values
+					F.Intrinsic.String.Split(V.Local.sSQL,"*!*",V.Local.sSQL)
+					F.Data.DataTable.SetValue("dtSave",V.Local.iCnt,"LABOR_COST",V.Local.sSQL(0).Float,"OVERHEAD_COST",V.Local.sSQL(1).Float,"MATERIAL_COST",V.Local.sSQL(2).Float,"OUTSIDE_COST",V.Local.sSQL(3).Float,"LABOR_HOURS",V.Local.sSQL(4).Float)
+					V.Local.sSQL.Redim(0,0)
+				F.Intrinsic.Control.EndIf
+			F.Intrinsic.Control.EndIf
+		F.Intrinsic.Control.Next(V.Local.iCnt)
+		F.Data.DataTable.AcceptChanges("dtSave")
+		F.Intrinsic.Control.If(V.DataTable.dtSave.RowCount,>,0)
+			F.Data.DataTable.SaveToDB("dtSave","SAVEcon","GCG_6195_ESTACT","ORDER_NO*!*ORDER_LINE*!*QUOTE_NO*!*QUOTE_LINE",256)
+		F.Intrinsic.Control.EndIf
+		V.Global.bSAVEcon.Set(False)
+		F.ODBC.Connection!SAVEcon.Close
+		
+		F.Data.DataTable.Close("dtSave")
+	F.Intrinsic.Control.Case(28310)
+		'Quote Gen from Router
+		'009000 - Quote No
+		'009002 - Part/Router
+		'009015 - Unit Cost
+		'009025 - Unit List Price
+		'Get Inventory Costing
+		F.Intrinsic.Control.CallSub(GetQuoteLines,"QuoteNos",V.Passed.009000)
+		F.Data.DataTable.ColumnToString("dtQuoteLines","PART",V.Local.sParts)
+		F.Data.DataTable.ColumnToString("dtQuoteLines","QTY_QUOTE",V.Local.sQtys)
+		
+		F.Intrinsic.String.Replace(V.Local.sParts,"*.*","*!*",V.Local.sParts)
+		F.Intrinsic.String.Replace(V.Local.sQtys,"*.*","*!*",V.Local.sQtys)
+		
+		F.Intrinsic.Control.CallSub(GetInventoryCostsAndLaborHours,"Parts",V.Local.sParts,"Qtys",V.Local.sQtys)
+		
+		F.Intrinsic.Control.If(V.DataTable.dtRtrInfo.Exists)
+			F.Data.Linq.Join("LeftJoin","DataTable","dtQuoteLines*!*QTE","DataTable","dtRtrInfo*!*RTR","QTE.PART = RTR.ROUTER","QTE.QUOTE_NO*!*QTE.QUOTE_LINE*!*QTE.QTY_QUOTE*!*QTE.PART*!*RTR.LABOR_COST*!*RTR.OVERHEAD_COST*!*RTR.MATERIAL_COST*!*RTR.OUTSIDE_COST*!*RTR.LABOR_HOURS","","","","dtSave",False)
+			
+			F.Data.DataTable.Close("dtQuoteLines")
+			F.Data.DataTable.Close("dtRtrInfo")
+		F.Intrinsic.Control.Else
+			F.Data.DataTable.Create("dtSave",False)
+			F.Data.DataTable.AddColumn("dtSave","ORDER_NO","String","")
+			F.Data.DataTable.AddColumn("dtSave","ORDER_LINE","String","")
+			F.Data.DataTable.AddColumn("dtSave","QUOTE_NO","String")
+			F.Data.DataTable.AddColumn("dtSave","QUOTE_LINE","String")
+			F.Data.DataTable.AddColumn("dtSave","QTY_QUOTE","String")
+			F.Data.DataTable.AddColumn("dtSave","PART","String")
+			F.Data.DataTable.AddColumn("dtSave","LABOR_COST","Float",0)
+			F.Data.DataTable.AddColumn("dtSave","OVERHEAD_COST","Float",0)
+			F.Data.DataTable.AddColumn("dtSave","MATERIAL_COST","Float",0)
+			F.Data.DataTable.AddColumn("dtSave","OUTSIDE_COST","Float",0)
+			F.Data.DataTable.AddColumn("dtSave","LABOR_HOURS","Float",0)
+			
+			F.Data.DataTable.Merge("dtQuoteLines","dtSave",True,2)
+			
+			F.Data.DataTable.Close("dtQuoteLines")
+		F.Intrinsic.Control.EndIf
+		
+		F.Data.DataView.Create("dtSave","dvSave")
+		'handle those without a router
+		F.Data.DataView.SetFilter("dtSave","dvSave","isnull([LABOR_COST], 0) = 0")
+		F.Data.DataView.SetValue("dtSave","dvSave",-1,"LABOR_COST",0)
+		F.Data.DataView.SetFilter("dtSave","dvSave","isnull([OVERHEAD_COST], 0) = 0")
+		F.Data.DataView.SetValue("dtSave","dvSave",-1,"OVERHEAD_COST",0)
+		F.Data.DataView.SetFilter("dtSave","dvSave","isnull([MATERIAL_COST], 0) = 0")
+		F.Data.DataView.SetValue("dtSave","dvSave",-1,"MATERIAL_COST",0)
+		F.Data.DataView.SetFilter("dtSave","dvSave","isnull([OUTSIDE_COST], 0) = 0")
+		F.Data.DataView.SetValue("dtSave","dvSave",-1,"OUTSIDE_COST",0)
+		F.Data.DataView.SetFilter("dtSave","dvSave","isnull([LABOR_HOURS], 0) = 0")
+		F.Data.DataView.SetValue("dtSave","dvSave",-1,"LABOR_HOURS",0)
+		
+		F.Data.DataTable.AddColumn("dtSave","ORDER_NO","String","")
+		F.Data.DataTable.AddColumn("dtSave","ORDER_LINE","String","")
+		
+		F.ODBC.Connection!SAVEcon.OpenCompanyConnection
+		V.Global.bSAVEcon.Set(True)
+		F.Data.DataTable.SaveToDB("dtSave","SAVEcon","GCG_6195_ESTACT","ORDER_NO*!*ORDER_LINE*!*QUOTE_NO*!*QUOTE_LINE",256)
+		V.Global.bSAVEcon.Set(False)
+		F.ODBC.Connection!SAVEcon.Close
+		
+		F.Data.DataTable.Close("dtSave")
+	F.Intrinsic.Control.Case(12231)
+		'Order Lines Post Save Hook
+		'000051 - Order Line
+		'000007 - Ordered Qty
+		'000024 - Qty BO
+		'000052 - Part Num
+		'000060 - Order No
+		'000221 - Orig Qty
+		F.Intrinsic.Control.If(V.Passed.000052.Trim,=,"")
+			'No part, exit
+			F.Intrinsic.Control.End
+		F.Intrinsic.Control.EndIf
+		F.Intrinsic.String.LPad(V.Passed.000060,"0",7,V.Local.sOrderNo)
+		F.Intrinsic.String.LPad(V.Passed.000051,"0",3,V.Local.sOrderLine)
+		F.Intrinsic.String.Build("{0}0",V.Local.sOrderLine,V.Local.sOrderLine)
+		
+		'Check if Order line has a record in custom table
+		F.Intrinsic.String.Build("select 1 from GCG_6195_ESTACT where ORDER_NO = '{0}' and ORDER_LINE = '{1}';",V.Local.sOrderNo,V.Local.sOrderLine,V.Local.sSQL)
+		F.ODBC.Connection!CHKcon.OpenCompanyConnection
+		V.Global.bCHKcon.Set(True)
+		F.ODBC.Connection!CHKcon.ExecuteAndReturn(V.Local.sSQL,V.Local.sSQL)
+		V.Global.bCHKcon.Set(False)
+		F.ODBC.Connection!CHKcon.Close
+		F.Intrinsic.Control.If(V.Ambient.ExecuteAndReturnEOF.Not)
+			F.Intrinsic.Control.End
+		F.Intrinsic.Control.EndIf
+		
+		F.Intrinsic.Control.CallSub(GetOrderLines,"Orders",V.Local.sOrderNo,"Line",V.Local.sOrderLine,"Quotes","")
+		
+		F.Intrinsic.Control.If(V.DataTable.dtOrderLines.RowCount,=,0)
+			'Order was deleted
+			F.Intrinsic.Control.End
+		F.Intrinsic.Control.EndIf
+		
+		F.Intrinsic.Control.CallSub(GetInventoryCostsAndLaborHours,"Parts",V.DataTable.dtOrderLines(0).PART!FieldVal,"Qtys",V.Passed.000007.String)
+		
+		F.Intrinsic.Control.If(V.DataTable.dtRtrInfo.Exists)
+			F.Intrinsic.Control.If(V.DataTable.dtRtrInfo.RowCount,=,0)
+				'No router
+				F.Data.DataTable.AddRow("dtRtrInfo","ROUTER",V.DataTable.dtOrderLines(0).PART!FieldVal,"COST",0,"MATERIAL_COST",0,"LABOR_COST",0,"OVERHEAD_COST",0,"OUTSIDE_COST",0,"FREIGHT_COST",0,"OTHER_COST",0,"LABOR_HOURS",0)
+			F.Intrinsic.Control.EndIf
+			
+			F.Data.Linq.Join("LeftJoin","DataTable","dtOrderLines*!*ORD","DataTable","dtRtrInfo*!*RTR","ORD.PART = RTR.ROUTER","ORD.ORDER_NO*!*ORD.ORDER_LINE*!*ORD.QUOTE_NO*!*ORD.QUOTE_LINE*!*ORD.QTY_QUOTE*!*ORD.PART*!*RTR.LABOR_COST*!*RTR.OVERHEAD_COST*!*RTR.MATERIAL_COST*!*RTR.OUTSIDE_COST*!*RTR.LABOR_HOURS","","","","dtSave",False)
+			
+			F.Data.DataTable.Close("dtRtrInfo")
+			F.Data.DataTable.Close("dtOrderLines")
+		F.Intrinsic.Control.Else
+			F.Data.DataTable.Create("dtSave",False)
+			F.Data.DataTable.AddColumn("dtSave","ORDER_NO","String")
+			F.Data.DataTable.AddColumn("dtSave","ORDER_LINE","String")
+			F.Data.DataTable.AddColumn("dtSave","QUOTE_NO","String")
+			F.Data.DataTable.AddColumn("dtSave","QUOTE_LINE","String")
+			F.Data.DataTable.AddColumn("dtSave","QTY_QUOTE","String")
+			F.Data.DataTable.AddColumn("dtSave","PART","String")
+			F.Data.DataTable.AddColumn("dtSave","LABOR_COST","Float",0)
+			F.Data.DataTable.AddColumn("dtSave","OVERHEAD_COST","Float",0)
+			F.Data.DataTable.AddColumn("dtSave","MATERIAL_COST","Float",0)
+			F.Data.DataTable.AddColumn("dtSave","OUTSIDE_COST","Float",0)
+			F.Data.DataTable.AddColumn("dtSave","LABOR_HOURS","Float",0)
+			
+			F.Data.DataTable.Merge("dtOrderLines","dtSave",True,2)
+			
+			F.Data.DataTable.Close("dtOrderLines")
+		F.Intrinsic.Control.EndIf
+		
+		F.ODBC.Connection!SAVEcon.OpenCompanyConnection
+		V.Global.bSAVEcon.Set(True)
+		F.Data.DataTable.SaveToDB("dtSave","SAVEcon","GCG_6195_ESTACT","ORDER_NO*!*ORDER_LINE*!*QUOTE_NO*!*QUOTE_LINE",256)
+		V.Global.bSAVEcon.Set(False)
+		F.ODBC.Connection!SAVEcon.Close
+		
+		F.Data.DataTable.Close("dtSave")
+	F.Intrinsic.Control.Case(17261)
+		'Work Order Serialization Populate
+		'009000 - Job
+		'009001 - Suffix
+		F.Intrinsic.Control.If(V.Passed.000013.Trim,=,"")
+			'No Job, exit
+			F.Intrinsic.Control.End
+		F.Intrinsic.Control.EndIf
+		'Loop for 5 minutes until Job is found
+		V.Local.dStart.Set(V.Ambient.Now)
+		V.Local.iMinutes.Set(0)
+		F.Intrinsic.Control.Do
+			F.Intrinsic.String.Build("select rtrim(SALES_ORDER), if(SALES_ORDER_LINE <> '', rtrim(SALES_ORDER_LINE) + '0', ''), QTY_ORDER from V_JOB_HEADER where JOB = '{0}' and SUFFIX = '{1}';",V.Passed.000013,"000",V.Local.sSQL)
+			F.ODBC.Connection!CHKcon.OpenCompanyConnection
+			V.Global.bCHKcon.Set(True)
+			F.ODBC.Connection!con.ExecuteAndReturn(V.Local.sSQL,V.Local.sSQL)
+			V.Global.bCHKcon.Set(False)
+			F.ODBC.Connection!CHKcon.Close
+			F.Intrinsic.String.Split(V.Local.sSQL,"*!*",V.Local.sSQL)
+			F.Intrinsic.Control.If(V.Ambient.ExecuteAndReturnEOF.Not)
+				F.Intrinsic.Control.ExitDo
+			F.Intrinsic.Control.EndIf
+			F.Intrinsic.UI.Sleep(5)
+			F.Intrinsic.Date.DateDiff("n",V.Local.dStart,V.Ambient.Now,V.Local.iMinutes)
+			F.Intrinsic.Control.If(V.Local.iMinutes,>=,5)
+				F.Intrinsic.Control.End
+			F.Intrinsic.Control.EndIf
+		F.Intrinsic.Control.Loop
+		V.Local.sOrderNo.Set(V.Local.sSQL(0))
+		V.Local.sOrderLine.Set(V.Local.sSQL(1))
+		V.Local.sQtys.Set(V.Local.sSQL(2))
+		V.Local.sSQL.Redim(0,0)
+		
+		'Check if Order line has a record in custom table
+		F.Intrinsic.String.Build("select 1 from GCG_6195_ESTACT where ORDER_NO = '{0}' and ORDER_LINE = '{1}';",V.Local.sOrderNo,V.Local.sOrderLine,V.Local.sSQL)
+		F.ODBC.Connection!CHKcon.OpenCompanyConnection
+		V.Global.bCHKcon.Set(True)
+		F.ODBC.Connection!CHKcon.ExecuteAndReturn(V.Local.sSQL,V.Local.sSQL)
+		V.Global.bCHKcon.Set(False)
+		F.ODBC.Connection!CHKcon.Close
+		F.Intrinsic.Control.If(V.Ambient.ExecuteAndReturnEOF.Not)
+			F.Intrinsic.Control.End
+		F.Intrinsic.Control.EndIf
+		
+		F.Intrinsic.Control.CallSub(GetOrderLines,"Orders",V.Local.sOrderNo,"Line",V.Local.sOrderLine,"Quotes","")
+		
+		F.Intrinsic.Control.If(V.DataTable.dtOrderLines.RowCount,=,0)
+			'Order was deleted
+			F.Intrinsic.Control.End
+		F.Intrinsic.Control.EndIf
+		
+		F.Intrinsic.Control.CallSub(GetInventoryCostsAndLaborHours,"Parts",V.DataTable.dtOrderLines(0).PART!FieldVal,"Qtys",V.Local.sQtys)
+		
+		F.Intrinsic.Control.If(V.DataTable.dtRtrInfo.Exists)
+			F.Intrinsic.Control.If(V.DataTable.dtRtrInfo.RowCount,=,0)
+				'No router
+				F.Data.DataTable.AddRow("dtRtrInfo","ROUTER",V.DataTable.dtOrderLines(0).PART!FieldVal,"COST",0,"MATERIAL_COST",0,"LABOR_COST",0,"OVERHEAD_COST",0,"OUTSIDE_COST",0,"FREIGHT_COST",0,"OTHER_COST",0,"LABOR_HOURS",0)
+			F.Intrinsic.Control.EndIf
+			
+			F.Data.Linq.Join("LeftJoin","DataTable","dtOrderLines*!*ORD","DataTable","dtRtrInfo*!*RTR","ORD.PART = RTR.ROUTER","ORD.ORDER_NO*!*ORD.ORDER_LINE*!*ORD.QUOTE_NO*!*ORD.QUOTE_LINE*!*ORD.QTY_QUOTE*!*ORD.PART*!*RTR.LABOR_COST*!*RTR.OVERHEAD_COST*!*RTR.MATERIAL_COST*!*RTR.OUTSIDE_COST*!*RTR.LABOR_HOURS","","","","dtSave",False)
+			
+			F.Data.DataTable.Close("dtRtrInfo")
+			F.Data.DataTable.Close("dtOrderLines")
+		F.Intrinsic.Control.Else
+			F.Data.DataTable.Create("dtSave",False)
+			F.Data.DataTable.AddColumn("dtSave","ORDER_NO","String")
+			F.Data.DataTable.AddColumn("dtSave","ORDER_LINE","String")
+			F.Data.DataTable.AddColumn("dtSave","QUOTE_NO","String")
+			F.Data.DataTable.AddColumn("dtSave","QUOTE_LINE","String")
+			F.Data.DataTable.AddColumn("dtSave","QTY_QUOTE","String")
+			F.Data.DataTable.AddColumn("dtSave","PART","String")
+			F.Data.DataTable.AddColumn("dtSave","LABOR_COST","Float",0)
+			F.Data.DataTable.AddColumn("dtSave","OVERHEAD_COST","Float",0)
+			F.Data.DataTable.AddColumn("dtSave","MATERIAL_COST","Float",0)
+			F.Data.DataTable.AddColumn("dtSave","OUTSIDE_COST","Float",0)
+			F.Data.DataTable.AddColumn("dtSave","LABOR_HOURS","Float",0)
+			
+			F.Data.DataTable.Merge("dtOrderLines","dtSave",True,2)
+			
+			F.Data.DataTable.Close("dtOrderLines")
+		F.Intrinsic.Control.EndIf
+		
+		F.ODBC.Connection!SAVEcon.OpenCompanyConnection
+		V.Global.bSAVEcon.Set(True)
+		F.Data.DataTable.SaveToDB("dtSave","SAVEcon","GCG_6195_ESTACT","ORDER_NO*!*ORDER_LINE*!*QUOTE_NO*!*QUOTE_LINE",256)
+		V.Global.bSAVEcon.Set(False)
+		F.ODBC.Connection!SAVEcon.Close
+		
+		F.Data.DataTable.Close("dtSave")
+	F.Intrinsic.Control.CaseElse
+		'Dashboard view of custom table
+		
+		'Get all orders in ORDER_HEADER, SHIPMENT_HEADER and ORDER_HIST_HEAD
+		F.ODBC.Connection!LOADcon.OpenCompanyConnection
+		V.Global.bLOADcon.Set(True)
+		F.Data.Dictionary.CreateFromSQL("dictOrders","LOADcon","select distinct ORDER_NO, ORDER_NO from V_ORDER_HEADER union select ORDER_NO, ORDER_NO from V_SHIPMENT_HEADER union select ORDER_NO, ORDER_NO from V_ORDER_HIST_HEAD;")
+		V.Global.bLOADcon.Set(False)
+		F.ODBC.Connection!LOADcon.Close
+		
+		Gui.F_Main.ddlOrder.AddItems("Dictionary","dictOrders")
+		
+		Gui.F_Main..ContextMenuCreate("ctxEstVsAct")
+		Gui.F_Main..ContextMenuAddItem("ctxEstVsAct","Export",0,"Export to XLS")
+		Gui.F_Main..ContextMenuSetItemEventHandler("ctxEstVsAct","Export","ExportGSGC")
+		Gui.F_Main.gsgcEstVsAct.ContextMenuAttach("ctxEstVsAct")
+		
+		'Get menu permissions
+		F.Global.Security.CheckUserAccessIPM(527,1,V.Global.bWOOpen)
+		F.Global.Security.CheckUserAccessIPM(536,0,V.Global.bWOView)
+		
+		F.Intrinsic.Control.If(V.Global.bWOOpen)
+			Gui.F_Main.optEdit.Enabled(True)
+			Gui.F_Main.optEdit.Value(1)
+		F.Intrinsic.Control.EndIf
+		F.Intrinsic.Control.If(V.Global.bWOView)
+			Gui.F_Main.optView.Enabled(True)
+			Gui.F_Main.optView.Value(1)
+		F.Intrinsic.Control.EndIf
+		
+		Gui.F_Main..Show
+F.Intrinsic.Control.EndSelect
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(ErrorMessage,"ScriptFile",V.Caller.ScriptFile,"CurrentSubroutine",V.Ambient.CurrentSubroutine)
+	F.Intrinsic.Control.CallSub(F_Main_UnLoad)
+F.Intrinsic.Control.EndTry
+Program.Sub.Main.End
+
+Program.Sub.GetInventoryCostsAndLaborHours.Start
+V.Local.sParts.Declare
+V.Local.sQtys.Declare
+V.Local.sCols.Declare
+V.Local.sTypes.Declare
+V.Local.sData.Declare
+V.Local.sLine.Declare
+V.Local.sSQL.Declare
+V.Local.iCnt.Declare
+V.Local.iCnt2.Declare
+F.Intrinsic.Control.Try
+
+V.Local.sCols.Set("TYPE*!*ROUTER*!*QTY*!*DIR_COST*!*EST_COST*!*MATERIAL*!*OUTSIDE*!*LABOR*!*LABOR_HRS*!*OVERHEAD*!*TIME_QTY*!*GP%-1*!*PRICE-1*!*GP%-2*!*PRICE-2*!*GP%-3*!*PRICE-3*!*GP%-4*!*PRICE-4*!*SELL3")
+V.Local.sTypes.Set("STRING*!*STRING*!*FLOAT*!*FLOAT*!*FLOAT*!*FLOAT*!*FLOAT*!*FLOAT*!*FLOAT*!*FLOAT*!*FLOAT*!*FLOAT*!*FLOAT*!*FLOAT*!*FLOAT*!*FLOAT*!*FLOAT*!*FLOAT*!*FLOAT*!*STRING")
+
+F.Intrinsic.String.Split(V.Args.Parts,"*!*",V.Local.sParts)
+F.Intrinsic.String.Split(V.Args.Qtys,"*!*",V.Local.sQtys)
+F.ODBC.Connection!con.OpenCompanyConnection
+F.Intrinsic.Control.For(V.Local.iCnt,0,V.Local.sParts.UBound,1)
+	'Check if the router has lines associated with it
+	F.Intrinsic.String.Build("select 1 from V_ROUTER_LINE where ROUTER = '{0}';",V.Local.sParts(V.Local.iCnt),V.Local.sSQL)
+	F.ODBC.Connection!con.ExecuteAndReturn(V.Local.sSQL,V.Local.sSQL)
+	F.Intrinsic.Control.If(V.Ambient.ExecuteAndReturnEOF.Not)
+		F.Data.DataTable.AddRow("1500","Router",V.Local.sParts(V.Local.iCnt),"Quantity",V.Local.sQtys(V.Local.iCnt).Float)
+	F.Intrinsic.Control.Else
+		F.Intrinsic.String.Build("No router lines were found for router {1}{0}{1}. Quote costs could not be generated.",V.Local.sParts(V.Local.iCnt).Trim,V.Ambient.DblQuote,V.Local.sSQL)
+		F.Intrinsic.UI.Msgbox(V.Local.sSQL)
+	F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.Next(V.Local.iCnt)
+F.ODBC.Connection!con.Close
+
+F.Intrinsic.Control.If(V.DataTable.1500.RowCount,>,0)
+	F.Intrinsic.Control.CallSub(1500Sync)
+	
+	'Read in output file
+	F.Intrinsic.File.File2String(V.Global.s1500OutputFile,V.Local.sData)
+	'loop and trim array
+	F.Intrinsic.String.Split(V.Local.sData,V.Ambient.NewLine,V.Local.sData)
+	F.Intrinsic.Control.For(V.Local.iCnt,0,V.Local.sData.UBound,1)
+'TR 10-9-23 We were getting an error if the last array element was blank, it wouldn't allow us to remove the element. Added in the ExitFor in this case if the element is the last in the array and is blank.	
+		F.Intrinsic.String.Split(V.Local.sData(V.Local.iCnt),"*!*",V.Local.sLine)
+		F.Intrinsic.Control.If(V.Local.sLine.UBound,=,0)
+			F.Intrinsic.Control.If(V.Local.sData.UBound,=,0)				
+				F.Intrinsic.Control.ExitFor(V.Local.iCnt)
+			F.Intrinsic.Control.EndIf
+			F.Intrinsic.Variable.RemoveArrayElementByOrdinal(V.Local.sData,V.Local.iCnt,V.Local.sData)
+			F.Intrinsic.Math.Sub(V.Local.iCnt,1,V.Local.iCnt)
+			F.Intrinsic.Control.Next(V.Local.iCnt)
+		F.Intrinsic.Control.Else
+			F.Intrinsic.Control.If(V.Local.sLine(0),!=,"T")
+				F.Intrinsic.Variable.RemoveArrayElementByOrdinal(V.Local.sData,V.Local.iCnt,V.Local.sData)
+				F.Intrinsic.Math.Sub(V.Local.iCnt,1,V.Local.iCnt)
+				F.Intrinsic.Control.Next(V.Local.iCnt)
+			F.Intrinsic.Control.EndIf
+			F.Intrinsic.Control.For(V.Local.iCnt2,0,V.Local.sLine.UBound,1)
+				V.Local.sLine(V.Local.iCnt2).Set(V.Local.sLine(V.Local.iCnt2).Trim)
+			F.Intrinsic.Control.Next(V.Local.iCnt2)
+			F.Intrinsic.String.Join(V.Local.sLine,"*!*",V.Local.sData(V.Local.iCnt))
+			V.Local.sLine.RedimPreserve(0,0)
+		F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.Next(V.Local.iCnt)
+	F.Intrinsic.String.Join(V.Local.sData,V.Ambient.NewLine,V.Local.sData)
+	V.Local.sData.RedimPreserve(0,0)
+	F.Data.DataTable.CreateFromString("dtRtrInfo",V.Local.sData,V.Local.sCols,V.Local.sTypes,"*!*",V.Ambient.NewLine,True)
+	
+	F.Data.DataTable.AddExpressionColumn("dtRtrInfo","COST","Float","[EST_COST] * [QTY]")
+	F.Data.DataTable.AddExpressionColumn("dtRtrInfo","LABOR_COST","Float","[LABOR] * [QTY]")
+	F.Data.DataTable.AddExpressionColumn("dtRtrInfo","OVERHEAD_COST","Float","[OVERHEAD] * [QTY]")
+	F.Data.DataTable.AddExpressionColumn("dtRtrInfo","MATERIAL_COST","Float","[MATERIAL] * [QTY]")
+	F.Data.DataTable.AddExpressionColumn("dtRtrInfo","OUTSIDE_COST","Float","[OUTSIDE] * [QTY]")
+	F.Data.DataTable.AddExpressionColumn("dtRtrInfo","LABOR_HOURS","Float","[LABOR_HRS] * [QTY]")
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(ErrorMessage,"ScriptFile",V.Caller.ScriptFile,"CurrentSubroutine",V.Ambient.CurrentSubroutine)
+	F.Intrinsic.Control.CallSub(F_Main_UnLoad)
+F.Intrinsic.Control.EndTry
+Program.Sub.GetInventoryCostsAndLaborHours.End
+
+Program.Sub.GetQuoteLines.Start
+V.Local.sQuotes.Declare
+V.Local.sSQL.Declare
+F.Intrinsic.Control.Try
+
+F.Intrinsic.String.Replace(V.Args.QuoteNos,"*!*","', '",V.Local.sQuotes)
+F.Intrinsic.String.Build("select QUOTE_NO, RECORD_NO as QUOTE_LINE, rtrim(PART) as PART, LOCATION, QTY_QUOTED as QTY_QUOTE from V_QUOTE_LINES where QUOTE_NO in ('{0}') order by QUOTE_NO, QUOTE_LINE;",V.Local.sQuotes,V.Local.sSQL)
+
+F.ODBC.Connection!QTEcon.OpenCompanyConnection
+V.Global.bQTEcon.Set(True)
+F.Data.DataTable.CreateFromSQL("dtQuoteLines","QTEcon",V.Local.sSQL,True)
+V.Global.bQTEcon.Set(False)
+F.ODBC.Connection!QTEcon.Close
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(ErrorMessage,"ScriptFile",V.Caller.ScriptFile,"CurrentSubroutine",V.Ambient.CurrentSubroutine)
+	F.Intrinsic.Control.CallSub(F_Main_UnLoad)
+F.Intrinsic.Control.EndTry
+Program.Sub.GetQuoteLines.End
+
+Program.Sub.GetOrderLines.Start
+V.Local.sOrders.Declare
+V.Local.sQuotes.Declare
+V.Local.sSQL.Declare
+F.Intrinsic.Control.Try
+
+F.Intrinsic.Control.If(V.Args.Orders,=,"")
+	'Use Quotes
+	F.Intrinsic.String.Split(V.Args.Quotes,"*!*",V.Local.sQuotes)
+	F.Intrinsic.String.Build("select A.ORDER_NO, A.RECORD_NO as ORDER_LINE, rtrim(A.PART) as PART, A.LOCATION, A.QTY_ORDERED as QTY_QUOTE, B.QUOTE as QUOTE_NO, A.ORIG_ORDER_LINE as QUOTE_LINE from V_ORDER_LINES A left join V_ORDER_HEADER B on A.ORDER_NO = B.ORDER_NO where B.QUOTE in ('{0}') order by B.QUOTE, QUOTE_LINE;",V.Local.sQuotes,V.Local.sSQL)
+F.Intrinsic.Control.ElseIf(V.Args.Line,=,"")
+	F.Intrinsic.String.Split(V.Args.Orders,"*!*",V.Local.sOrders)
+	F.Intrinsic.String.Build("select A.ORDER_NO, A.RECORD_NO as ORDER_LINE, rtrim(A.PART) as PART, A.LOCATION, A.QTY_ORDERED as QTY_QUOTE, B.QUOTE as QUOTE_NO, A.ORIG_ORDER_LINE as QUOTE_LINE from V_ORDER_LINES A left join V_ORDER_HEADER B on A.ORDER_NO = B.ORDER_NO where A.ORDER_NO in ('{0}') order by B.QUOTE, QUOTE_LINE;",V.Local.sOrders,V.Local.sSQL)
+F.Intrinsic.Control.Else
+	F.Intrinsic.String.Build("select A.ORDER_NO, A.RECORD_NO as ORDER_LINE, rtrim(A.PART) as PART, A.LOCATION, A.QTY_ORDERED as QTY_QUOTE, B.QUOTE as QUOTE_NO, A.ORIG_ORDER_LINE as QUOTE_LINE from V_ORDER_LINES A left join V_ORDER_HEADER B on A.ORDER_NO = B.ORDER_NO where A.ORDER_NO = '{0}' and A.RECORD_NO = '{1}' order by B.QUOTE, QUOTE_LINE;",V.Args.Orders,V.Args.Line,V.Local.sSQL)
+F.Intrinsic.Control.EndIf
+
+F.ODBC.Connection!ORDcon.OpenCompanyConnection
+V.Global.bORDcon.Set(True)
+F.Data.DataTable.CreateFromSQL("dtOrderLines","ORDcon",V.Local.sSQL,True)
+V.Global.bORDcon.Set(False)
+F.ODBC.Connection!ORDcon.Close
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(ErrorMessage,"ScriptFile",V.Caller.ScriptFile,"CurrentSubroutine",V.Ambient.CurrentSubroutine)
+	F.Intrinsic.Control.CallSub(F_Main_UnLoad)
+F.Intrinsic.Control.EndTry
+Program.Sub.GetOrderLines.End
+
+Program.Sub.F_Main_UnLoad.Start
+F.Intrinsic.Control.If(V.Global.bSAVEcon)
+	F.ODBC.Connection!SAVEcon.Close
+F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.If(V.Global.bQTEcon)
+	F.ODBC.Connection!QTEcon.Close
+F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.If(V.Global.bORDcon)
+	F.ODBC.Connection!ORDcon.Close
+F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.If(V.Global.bLOADcon)
+	F.ODBC.Connection!LOADcon.Close
+F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.If(V.DataTable.dtEstVsAct.Exists)
+	F.Intrinsic.Control.CallSub(Serialize)
+	F.Data.DataTable.Close("dtEstVsAct")
+F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.End
+Program.Sub.F_Main_UnLoad.End
+
+Program.Sub.optSelection_Click.Start
+F.Intrinsic.Control.Try
+
+F.Intrinsic.Control.SelectCase(V.Args.ControlName.UCase)
+	F.Intrinsic.Control.Case("OPTORDER")
+		Gui.F_Main.frameDate.Enabled(False)
+		Gui.F_Main.frameOrder.Enabled(True)
+	F.Intrinsic.Control.Case("OPTDATE")
+		Gui.F_Main.frameOrder.Enabled(False)
+		Gui.F_Main.frameDate.Enabled(True)
+F.Intrinsic.Control.EndSelect
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(ErrorMessage,"ScriptFile",V.Caller.ScriptFile,"CurrentSubroutine",V.Ambient.CurrentSubroutine)
+	F.Intrinsic.Control.CallSub(F_Main_UnLoad)
+F.Intrinsic.Control.EndTry
+Program.Sub.optSelection_Click.End
+
+Program.Sub.dtpShip_Change.Start
+F.Intrinsic.Control.Try
+
+F.Intrinsic.Control.SelectCase(V.Args.ControlName.UCase)
+	F.Intrinsic.Control.Case("DTPSHIPBEGIN")
+		F.Intrinsic.Control.If(V.Screen.F_Main!dtpShipBegin.Value,>,V.Screen.F_Main!dtpShipEnd.Value)
+			Gui.F_Main.dtpShipBegin.Value(V.Screen.F_Main!dtpShipEnd.Value)
+		F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.Case("DTPSHIPEND")
+		F.Intrinsic.Control.If(V.Screen.F_Main!dtpShipBegin.Value,>,V.Screen.F_Main!dtpShipEnd.Value)
+			Gui.F_Main.dtpShipEnd.Value(V.Screen.F_Main!dtpShipBegin.Value)
+		F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.EndSelect
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(ErrorMessage,"ScriptFile",V.Caller.ScriptFile,"CurrentSubroutine",V.Ambient.CurrentSubroutine)
+	F.Intrinsic.Control.CallSub(F_Main_UnLoad)
+F.Intrinsic.Control.EndTry
+Program.Sub.dtpShip_Change.End
+
+Program.Sub.cmdRefresh_Click.Start
+V.Local.sSQL.Declare
+V.Local.sWOs.Declare
+V.Local.sSOs.Declare
+V.Local.sUser4.Declare
+V.Local.sUser5.Declare
+V.Local.dBeg.Declare
+V.Local.dEnd.Declare
+F.Intrinsic.Control.Try
+
+F.Intrinsic.Control.BlockEvents
+
+F.Intrinsic.Control.If(V.Screen.F_Main!optOrder.Value)
+	'By Sales Order Num
+	F.Intrinsic.Control.If(V.Screen.F_Main!ddlOrder.ListIndex,=,-1)
+		F.Intrinsic.UI.Msgbox("Please select a Sales Order.")
+		Gui.F_Main.ddlOrder.SetFocus
+		F.Intrinsic.Control.UnBlockEvents
+		F.Intrinsic.Control.ExitSub
+	F.Intrinsic.Control.EndIf
+	
+	F.Intrinsic.Control.If(V.DataTable.dtEstVsAct.Exists)
+		F.Intrinsic.Control.CallSub(Serialize)
+		F.Data.DataTable.Close("dtEstVsAct")
+	F.Intrinsic.Control.EndIf
+	
+	F.ODBC.Connection!LOADcon.OpenCompanyConnection
+	V.Global.bLOADcon.Set(True)
+	F.Intrinsic.String.Build("select SALES_ORDER as ORDER_NO, SALES_ORDER_LINE as ORDER_LINE, CUSTOMER, JOB, SUFFIX, if(DATE_CLOSED = '1900-01-01', NULL, DATE_CLOSED) as DATE_CLOSED, JOB + SUFFIX as WO, 'A' as ACTORHIST, QTY_COMPLETED as QTY_ACT, AMT_LABOR + AMT_OVERHEAD as LABOR_ACT, AMT_MATERIAL as MATERIAL_ACT, OUTS as OUTSIDE_ACT from V_JOB_HEADER where SALES_ORDER = '{0}' union select SALES_ORDER as ORDER_NO, SALES_ORDER_LINE as ORDER_LINE, CUSTOMER, JOB, SUFFIX, if(DATE_CLOSED = '1900-01-01', NULL, DATE_CLOSED) as DATE_CLOSED, JOB + SUFFIX as WO, 'H' as ACTORHIST, QTY_COMPLETED as QTY_ACT, AMT_LABOR + AMT_OVERHEAD as LABOR_ACT, AMT_MATERIAL as MATERIAL_ACT, OUTS as OUTSIDE_ACT from V_JOB_HIST_MAST where SALES_ORDER = '{0}';",V.Screen.F_Main!ddlOrder.Text,V.Local.sSQL)
+	F.Data.DataTable.CreateFromSQL("dtJobHeader","LOADcon",V.Local.sSQL,False)
+	F.Intrinsic.String.Build("select ORDER_NO, left(ORDER_LINE, 3) as ORDER_LINE, QUOTE_NO, left(QUOTE_LINE, 3) as QUOTE_LINE, rtrim(PART) as PART, QTY_QUOTE as QTY_EST, LABOR_COST + OVERHEAD_COST as LABOR_EST, MATERIAL_COST as MATERIAL_EST, OUTSIDE_COST as OUTSIDE_EST, LABOR_HOURS as HOURS_EST from GCG_6195_ESTACT where ORDER_NO = '{0}';",V.Screen.F_Main!ddlOrder.Text,V.Local.sSQL)
+	F.Data.DataTable.CreateFromSQL("dtEstCosts","LOADcon",V.Local.sSQL,False)
+	F.Data.DataTable.ColumnToString("dtJobHeader","WO",V.Local.sWOs)
+	F.Intrinsic.String.Replace(V.Local.sWOs,"*.*","*!*",V.Local.sWOs)
+	F.Intrinsic.String.Replace(V.Local.sWOs,"*!*","', '",V.Local.sWOs)
+	F.Intrinsic.String.Build("select JOB, SUFFIX, sum(HOURS_ACTUAL) as HOURS_ACT from V_JOB_OPERATIONS where JOB + SUFFIX in ('{0}') and LMO = 'L' group by JOB, SUFFIX union select JOB, SUFFIX, sum(HOURS_ACTUAL) as HOURS_ACT from V_JOB_HIST_OPS where JOB + SUFFIX in ('{0}') and LMO = 'L' group by JOB, SUFFIX;",V.Local.sWOs,V.Local.sSQL)
+	F.Data.DataTable.CreateFromSQL("dtLaborHours","LOADcon",V.Local.sSQL,False)
+	F.Data.DataTable.CreateFromSQL("dtOrderLines","LOADcon","select distinct ORDER_NO, left(RECORD_NO, 3) as ORDER_LINE, rtrim(USER_4) as USER_4, rtrim(USER_5) as USER_5 from V_ORDER_LINES union select ORDER_NO, left(ORDER_REC, 3) as ORDER_LINE, rtrim(LN_USER_4) as USER_4, rtrim(LN_USER_5) as USER_5 from V_SHIPMENT_LINES union select ORDER_NO, left(ORDER_LINE, 3) as ORDER_LINE, rtrim(USER_4) as USER_4, rtrim(USER_5) as USER_5 from V_ORDER_HIST_LINE;",False)
+	F.Data.DataTable.CreateFromSQL("dtOrderHeader","LOADcon","select distinct ORDER_NO, rtrim(CUSTOMER_PO) as CUST_PO from V_ORDER_HEADER union select ORDER_NO, rtrim(CUSTOMER_PO) from V_SHIPMENT_HEADER union select ORDER_NO, rtrim(CUSTOMER_PO) as CUST_PO from V_ORDER_HIST_HEAD;",False)
+	V.Global.bLOADcon.Set(False)
+	F.ODBC.Connection!LOADcon.Close
+	
+	F.Data.Linq.Join("LeftJoin","DataTable","dtJobHeader*!*HEAD","DataTable","dtEstCosts*!*EST","HEAD.ORDER_NO = EST.ORDER_NO and HEAD.ORDER_LINE = EST.ORDER_LINE","DataTable","dtLaborHours*!*OPS","HEAD.JOB = OPS.JOB and HEAD.SUFFIX = OPS.SUFFIX","DataTable","dtOrderLines*!*ORD","HEAD.ORDER_NO = ORD.ORDER_NO and HEAD.ORDER_LINE = ORD.ORDER_LINE","DataTable","dtOrderHeader*!*ORD_H","HEAD.ORDER_NO = ORD_H.ORDER_NO","*","","","HEAD.ORDER_LINE asc","dtEstVsAct",True)
+	
+	F.Data.DataTable.Close("dtJobHeader")
+	F.Data.DataTable.Close("dtEstCosts")
+	F.Data.DataTable.Close("dtLaborHours")
+	F.Data.DataTable.Close("dtOrderLines")
+	F.Data.DataTable.Close("dtOrderHeader")
+	
+	F.Data.DataTable.RemoveColumn("dtEstVsAct","ORDER_NO1")
+	F.Data.DataTable.RemoveColumn("dtEstVsAct","ORDER_NO2")
+	F.Data.DataTable.RemoveColumn("dtEstVsAct","ORDER_NO3")
+	F.Data.DataTable.RemoveColumn("dtEstVsAct","ORDER_LINE1")
+	F.Data.DataTable.RemoveColumn("dtEstVsAct","ORDER_LINE2")
+	F.Data.DataTable.RemoveColumn("dtEstVsAct","JOB1")
+	F.Data.DataTable.RemoveColumn("dtEstVsAct","SUFFIX1")
+	F.Data.DataTable.RemoveColumn("dtEstVsAct","WO")
+	
+'	F.Data.DataTable.AddExpressionColumn("dtEstVsAct","UNIT_EST","Float","[LABOR_EST] + [OVERHEAD_EST] + [MATERIAL_EST] + [OUTSIDE_EST]")
+'	F.Data.DataTable.AddExpressionColumn("dtEstVsAct","UNIT_ACT","Float","[LABOR_ACT] + [OVERHEAD_ACT] + [MATERIAL_ACT] + [OUTSIDE_ACT]")
+'	F.Data.DataTable.AddExpressionColumn("dtEstVsAct","EXTENDED_EST","Float","[LABOR_EST] + [OVERHEAD_EST] + [MATERIAL_EST] + [OUTSIDE_EST]")
+'	F.Data.DataTable.AddExpressionColumn("dtEstVsAct","EXTENDED_ACT","Float","[LABOR_ACT] + [OVERHEAD_ACT] + [MATERIAL_ACT] + [OUTSIDE_ACT]")
+	F.Data.DataTable.AddExpressionColumn("dtEstVsAct","EXTENDED_EST","Float","[LABOR_EST] + [MATERIAL_EST] + [OUTSIDE_EST]")
+	F.Data.DataTable.AddExpressionColumn("dtEstVsAct","EXTENDED_ACT","Float","[LABOR_ACT] + [MATERIAL_ACT] + [OUTSIDE_ACT]")
+	F.Data.DataTable.AddExpressionColumn("dtEstVsAct","MARGIN","Float","(isnull([EXTENDED_EST], 0) - [EXTENDED_ACT]) / iif(isnull([EXTENDED_EST], 0) = 0, 1, [EXTENDED_EST])")
+F.Intrinsic.Control.ElseIf(V.Screen.F_Main!optDate.Value)
+	'By Ship Date
+	F.Intrinsic.Control.If(V.DataTable.dtEstVsAct.Exists)
+		F.Intrinsic.Control.CallSub(Serialize)
+		F.Data.DataTable.Close("dtEstVsAct")
+	F.Intrinsic.Control.EndIf
+	
+	V.Local.dBeg.Set(V.Screen.F_Main!dtpShipBegin.Value)
+	V.Local.dEnd.Set(V.Screen.F_Main!dtpShipEnd.Value)
+	
+	F.ODBC.Connection!LOADcon.OpenCompanyConnection
+	V.Global.bLOADcon.Set(True)
+	F.Intrinsic.String.Build("select distinct ORDER_NO + left(ORDER_REC, 3) as SO from V_SHIPMENT_LINES where DATE_SHIP between '{0}' and '{1}' union select ORDER_NO + left(ORDER_LINE, 3) as SO from V_ORDER_HIST_LINE where DATE_SHIPPED between '{0}' and '{1}' union select ORDER_NO + left(RECORD_NO, 3) as SO from V_ORDER_LINES where ITEM_PROMISE_DT between '{0}' and '{1}';",V.Local.dBeg.PervasiveDate,V.Local.dEnd.PervasiveDate,V.Local.sSQL)
+	F.Data.DataTable.CreateFromSQL("dtShipments","LOADcon",V.Local.sSQL,False)
+	F.Data.DataTable.ColumnToString("dtShipments","SO",V.Local.sSOs)
+	F.Intrinsic.String.Replace(V.Local.sSOs,"*.*","*!*",V.Local.sSOs)
+	F.Intrinsic.String.Replace(V.Local.sSOs,"*!*","', '",V.Local.sSOs)
+	F.Intrinsic.String.Build("select SALES_ORDER as ORDER_NO, SALES_ORDER_LINE as ORDER_LINE, CUSTOMER, JOB, SUFFIX,if(DATE_CLOSED = '1900-01-01', NULL, DATE_CLOSED) as DATE_CLOSED, JOB + SUFFIX as WO, 'A' as ACTORHIST, QTY_COMPLETED as QTY_ACT, AMT_LABOR + AMT_OVERHEAD as LABOR_ACT, AMT_MATERIAL as MATERIAL_ACT, OUTS as OUTSIDE_ACT from V_JOB_HEADER where SALES_ORDER + SALES_ORDER_LINE in ('{0}') union select SALES_ORDER as ORDER_NO, SALES_ORDER_LINE as ORDER_LINE, CUSTOMER, JOB, SUFFIX, if(DATE_CLOSED = '1900-01-01', NULL, DATE_CLOSED) as DATE_CLOSED, JOB + SUFFIX as WO, 'H' as ACTORHIST, QTY_COMPLETED as QTY_ACT, AMT_LABOR + AMT_OVERHEAD as LABOR_ACT, AMT_MATERIAL as MATERIAL_ACT, OUTS as OUTSIDE_ACT from V_JOB_HIST_MAST where SALES_ORDER + SALES_ORDER_LINE in ('{0}');",V.Local.sSOs,V.Local.sSQL)
+	F.Data.DataTable.CreateFromSQL("dtJobHeader","LOADcon",V.Local.sSQL,False)
+	F.Intrinsic.String.Replace(V.Local.sSOs,"', '","0', '",V.Local.sSOs)
+	F.Intrinsic.String.Build("select ORDER_NO, left(ORDER_LINE, 3) as ORDER_LINE, QUOTE_NO, left(QUOTE_LINE, 3) as QUOTE_LINE, rtrim(PART) as PART, QTY_QUOTE as QTY_EST, LABOR_COST + OVERHEAD_COST as LABOR_EST, MATERIAL_COST as MATERIAL_EST, OUTSIDE_COST as OUTSIDE_EST, LABOR_HOURS as HOURS_EST from GCG_6195_ESTACT where ORDER_NO + ORDER_LINE in ('{0}0');",V.Local.sSOs,V.Local.sSQL)
+	F.Data.DataTable.CreateFromSQL("dtEstCosts","LOADcon",V.Local.sSQL,False)
+	F.Data.DataTable.ColumnToString("dtJobHeader","WO",V.Local.sWOs)
+	F.Intrinsic.String.Replace(V.Local.sWOs,"*.*","*!*",V.Local.sWOs)
+	F.Intrinsic.String.Replace(V.Local.sWOs,"*!*","', '",V.Local.sWOs)
+	F.Intrinsic.String.Build("select JOB, SUFFIX, sum(HOURS_ACTUAL) as HOURS_ACT from V_JOB_OPERATIONS where JOB + SUFFIX in ('{0}') and LMO = 'L' group by JOB, SUFFIX union select JOB, SUFFIX, sum(HOURS_ACTUAL) as HOURS_ACT from V_JOB_HIST_OPS where JOB + SUFFIX in ('{0}') and LMO = 'L' group by JOB, SUFFIX;",V.Local.sWOs,V.Local.sSQL)
+	F.Data.DataTable.CreateFromSQL("dtLaborHours","LOADcon",V.Local.sSQL,False)
+	F.Data.DataTable.CreateFromSQL("dtOrderLines","LOADcon","select distinct ORDER_NO, left(RECORD_NO, 3) as ORDER_LINE, rtrim(USER_4) as USER_4, rtrim(USER_5) as USER_5 from V_ORDER_LINES union select ORDER_NO, left(ORDER_REC, 3) as ORDER_LINE, rtrim(LN_USER_4) as USER_4, rtrim(LN_USER_5) as USER_5 from V_SHIPMENT_LINES union select ORDER_NO, left(ORDER_LINE, 3) as ORDER_LINE, rtrim(USER_4) as USER_4, rtrim(USER_5) as USER_5 from V_ORDER_HIST_LINE;",False)
+	F.Data.DataTable.CreateFromSQL("dtOrderHeader","LOADcon","select distinct ORDER_NO, rtrim(CUSTOMER_PO) as CUST_PO from V_ORDER_HEADER union select ORDER_NO, rtrim(CUSTOMER_PO) from V_SHIPMENT_HEADER union select ORDER_NO, rtrim(CUSTOMER_PO) as CUST_PO from V_ORDER_HIST_HEAD;",False)
+	V.Global.bLOADcon.Set(False)
+	F.ODBC.Connection!LOADcon.Close
+	
+	F.Data.Linq.Join("LeftJoin","DataTable","dtJobHeader*!*HEAD","DataTable","dtEstCosts*!*EST","HEAD.ORDER_NO = EST.ORDER_NO and HEAD.ORDER_LINE = EST.ORDER_LINE","DataTable","dtLaborHours*!*OPS","HEAD.JOB = OPS.JOB and HEAD.SUFFIX = OPS.SUFFIX","DataTable","dtOrderLines*!*ORD","HEAD.ORDER_NO = ORD.ORDER_NO and HEAD.ORDER_LINE = ORD.ORDER_LINE","DataTable","dtOrderHeader*!*ORD_H","HEAD.ORDER_NO = ORD_H.ORDER_NO","*","","","HEAD.ORDER_LINE asc","dtEstVsAct",True)
+	
+	F.Data.DataTable.Close("dtJobHeader")
+	F.Data.DataTable.Close("dtEstCosts")
+	F.Data.DataTable.Close("dtLaborHours")
+	F.Data.DataTable.Close("dtShipments")
+	F.Data.DataTable.Close("dtOrderLines")
+	F.Data.DataTable.Close("dtOrderHeader")
+	
+	F.Data.DataTable.RemoveColumn("dtEstVsAct","ORDER_NO1")
+	F.Data.DataTable.RemoveColumn("dtEstVsAct","ORDER_NO2")
+	F.Data.DataTable.RemoveColumn("dtEstVsAct","ORDER_NO3")
+	F.Data.DataTable.RemoveColumn("dtEstVsAct","ORDER_LINE1")
+	F.Data.DataTable.RemoveColumn("dtEstVsAct","ORDER_LINE2")
+	F.Data.DataTable.RemoveColumn("dtEstVsAct","JOB1")
+	F.Data.DataTable.RemoveColumn("dtEstVsAct","SUFFIX1")
+	F.Data.DataTable.RemoveColumn("dtEstVsAct","WO")
+	
+'	F.Data.DataTable.AddExpressionColumn("dtEstVsAct","UNIT_EST","Float","[LABOR_EST] + [OVERHEAD_EST] + [MATERIAL_EST] + [OUTSIDE_EST]")
+'	F.Data.DataTable.AddExpressionColumn("dtEstVsAct","UNIT_ACT","Float","[LABOR_ACT] + [OVERHEAD_ACT] + [MATERIAL_ACT] + [OUTSIDE_ACT]")
+'	F.Data.DataTable.AddExpressionColumn("dtEstVsAct","EXTENDED_EST","Float","[LABOR_EST] + [OVERHEAD_EST] + [MATERIAL_EST] + [OUTSIDE_EST]")
+'	F.Data.DataTable.AddExpressionColumn("dtEstVsAct","EXTENDED_ACT","Float","[LABOR_ACT] + [OVERHEAD_ACT] + [MATERIAL_ACT] + [OUTSIDE_ACT]")
+	F.Data.DataTable.AddExpressionColumn("dtEstVsAct","EXTENDED_EST","Float","[LABOR_EST] + [MATERIAL_EST] + [OUTSIDE_EST]")
+	F.Data.DataTable.AddExpressionColumn("dtEstVsAct","EXTENDED_ACT","Float","[LABOR_ACT] + [MATERIAL_ACT] + [OUTSIDE_ACT]")
+	F.Data.DataTable.AddExpressionColumn("dtEstVsAct","MARGIN","Float","(isnull([EXTENDED_EST], 0) - [EXTENDED_ACT]) / iif(isnull([EXTENDED_EST], 0) = 0, 1, [EXTENDED_EST])")
+F.Intrinsic.Control.ElseIf(V.Screen.F_Main!optAllSO.Value)
+	'All Open Sales Orders
+	F.Intrinsic.Control.If(V.DataTable.dtEstVsAct.Exists)
+		F.Intrinsic.Control.CallSub(Serialize)
+		F.Data.DataTable.Close("dtEstVsAct")
+	F.Intrinsic.Control.EndIf
+	
+	F.ODBC.Connection!LOADcon.OpenCompanyConnection
+	V.Global.bLOADcon.Set(True)
+	F.Data.DataTable.CreateFromSQL("dtShipments","LOADcon","select distinct ORDER_NO + left(RECORD_NO, 3) as SO from V_ORDER_LINES;",False)
+	F.Data.DataTable.ColumnToString("dtShipments","SO",V.Local.sSOs)
+	F.Intrinsic.String.Replace(V.Local.sSOs,"*.*","*!*",V.Local.sSOs)
+	F.Intrinsic.String.Replace(V.Local.sSOs,"*!*","', '",V.Local.sSOs)
+	F.Intrinsic.String.Build("select SALES_ORDER as ORDER_NO, SALES_ORDER_LINE as ORDER_LINE, CUSTOMER, JOB, SUFFIX,if(DATE_CLOSED = '1900-01-01', NULL, DATE_CLOSED) as DATE_CLOSED, JOB + SUFFIX as WO, 'A' as ACTORHIST, QTY_COMPLETED as QTY_ACT, AMT_LABOR + AMT_OVERHEAD as LABOR_ACT, AMT_MATERIAL as MATERIAL_ACT, OUTS as OUTSIDE_ACT from V_JOB_HEADER where SALES_ORDER + SALES_ORDER_LINE in ('{0}') union select SALES_ORDER as ORDER_NO, SALES_ORDER_LINE as ORDER_LINE, CUSTOMER, JOB, SUFFIX, if(DATE_CLOSED = '1900-01-01', NULL, DATE_CLOSED) as DATE_CLOSED, JOB + SUFFIX as WO, 'H' as ACTORHIST, QTY_COMPLETED as QTY_ACT, AMT_LABOR + AMT_OVERHEAD as LABOR_ACT, AMT_MATERIAL as MATERIAL_ACT, OUTS as OUTSIDE_ACT from V_JOB_HIST_MAST where SALES_ORDER + SALES_ORDER_LINE in ('{0}0');",V.Local.sSOs,V.Local.sSQL)
+	F.Data.DataTable.CreateFromSQL("dtJobHeader","LOADcon",V.Local.sSQL,False)
+	F.Intrinsic.String.Replace(V.Local.sSOs,"', '","0', '",V.Local.sSOs)
+	F.Intrinsic.String.Build("select ORDER_NO, left(ORDER_LINE, 3) as ORDER_LINE, QUOTE_NO, left(QUOTE_LINE, 3) as QUOTE_LINE, rtrim(PART) as PART, QTY_QUOTE as QTY_EST, LABOR_COST + OVERHEAD_COST as LABOR_EST, MATERIAL_COST as MATERIAL_EST, OUTSIDE_COST as OUTSIDE_EST, LABOR_HOURS as HOURS_EST from GCG_6195_ESTACT where ORDER_NO + ORDER_LINE in ('{0}');",V.Local.sSOs,V.Local.sSQL)
+	F.Data.DataTable.CreateFromSQL("dtEstCosts","LOADcon",V.Local.sSQL,False)
+	F.Data.DataTable.ColumnToString("dtJobHeader","WO",V.Local.sWOs)
+	F.Intrinsic.String.Replace(V.Local.sWOs,"*.*","*!*",V.Local.sWOs)
+	F.Intrinsic.String.Replace(V.Local.sWOs,"*!*","', '",V.Local.sWOs)
+	F.Intrinsic.String.Build("select JOB, SUFFIX, sum(HOURS_ACTUAL) as HOURS_ACT from V_JOB_OPERATIONS where JOB + SUFFIX in ('{0}') and LMO = 'L' group by JOB, SUFFIX union select JOB, SUFFIX, sum(HOURS_ACTUAL) as HOURS_ACT from V_JOB_HIST_OPS where JOB + SUFFIX in ('{0}') and LMO = 'L' group by JOB, SUFFIX;",V.Local.sWOs,V.Local.sSQL)
+	F.Data.DataTable.CreateFromSQL("dtLaborHours","LOADcon",V.Local.sSQL,False)
+	F.Data.DataTable.CreateFromSQL("dtOrderLines","LOADcon","select distinct ORDER_NO, left(RECORD_NO, 3) as ORDER_LINE, rtrim(USER_4) as USER_4, rtrim(USER_5) as USER_5 from V_ORDER_LINES union select ORDER_NO, left(ORDER_REC, 3) as ORDER_LINE, rtrim(LN_USER_4) as USER_4, rtrim(LN_USER_5) as USER_5 from V_SHIPMENT_LINES union select ORDER_NO, left(ORDER_LINE, 3) as ORDER_LINE, rtrim(USER_4) as USER_4, rtrim(USER_5) as USER_5 from V_ORDER_HIST_LINE;",False)
+	F.Data.DataTable.CreateFromSQL("dtOrderHeader","LOADcon","select distinct ORDER_NO, rtrim(CUSTOMER_PO) as CUST_PO from V_ORDER_HEADER union select ORDER_NO, rtrim(CUSTOMER_PO) from V_SHIPMENT_HEADER union select ORDER_NO, rtrim(CUSTOMER_PO) as CUST_PO from V_ORDER_HIST_HEAD;",False)
+	V.Global.bLOADcon.Set(False)
+	F.ODBC.Connection!LOADcon.Close
+	
+	F.Data.Linq.Join("LeftJoin","DataTable","dtJobHeader*!*HEAD","DataTable","dtEstCosts*!*EST","HEAD.ORDER_NO = EST.ORDER_NO and HEAD.ORDER_LINE = EST.ORDER_LINE","DataTable","dtLaborHours*!*OPS","HEAD.JOB = OPS.JOB and HEAD.SUFFIX = OPS.SUFFIX","DataTable","dtOrderLines*!*ORD","HEAD.ORDER_NO = ORD.ORDER_NO and HEAD.ORDER_LINE = ORD.ORDER_LINE","DataTable","dtOrderHeader*!*ORD_H","HEAD.ORDER_NO = ORD_H.ORDER_NO","*","","","HEAD.ORDER_LINE asc","dtEstVsAct",True)
+	
+	F.Data.DataTable.Close("dtJobHeader")
+	F.Data.DataTable.Close("dtEstCosts")
+	F.Data.DataTable.Close("dtLaborHours")
+	F.Data.DataTable.Close("dtShipments")
+	F.Data.DataTable.Close("dtOrderLines")
+	F.Data.DataTable.Close("dtOrderHeader")
+	
+	F.Data.DataTable.RemoveColumn("dtEstVsAct","ORDER_NO1")
+	F.Data.DataTable.RemoveColumn("dtEstVsAct","ORDER_NO2")
+	F.Data.DataTable.RemoveColumn("dtEstVsAct","ORDER_NO3")
+	F.Data.DataTable.RemoveColumn("dtEstVsAct","ORDER_LINE1")
+	F.Data.DataTable.RemoveColumn("dtEstVsAct","ORDER_LINE2")
+	F.Data.DataTable.RemoveColumn("dtEstVsAct","JOB1")
+	F.Data.DataTable.RemoveColumn("dtEstVsAct","SUFFIX1")
+	F.Data.DataTable.RemoveColumn("dtEstVsAct","WO")
+	
+	F.Data.DataTable.AddExpressionColumn("dtEstVsAct","EXTENDED_EST","Float","[LABOR_EST] + [MATERIAL_EST] + [OUTSIDE_EST]")
+	F.Data.DataTable.AddExpressionColumn("dtEstVsAct","EXTENDED_ACT","Float","[LABOR_ACT] + [MATERIAL_ACT] + [OUTSIDE_ACT]")
+	F.Data.DataTable.AddExpressionColumn("dtEstVsAct","MARGIN","Float","(isnull([EXTENDED_EST], 0) - [EXTENDED_ACT]) / iif(isnull([EXTENDED_EST], 0) = 0, 1, [EXTENDED_EST])")
+F.Intrinsic.Control.Else
+	'No option selected
+	F.Intrinsic.UI.Msgbox("Please select a filter option.")
+	F.Intrinsic.Control.UnBlockEvents
+	F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.EndIf
+
+F.Data.DataTable.AddColumn("dtEstVsAct","NAME_CUSTOMER","String")
+F.ODBC.Connection!LOADcon.OpenCompanyConnection
+V.Global.bLOADcon.Set(True)
+F.Data.Dictionary.CreateFromSQL("dictCust","LOADcon","select CUSTOMER, NAME_CUSTOMER from V_CUSTOMER_MASTER;")
+F.ODBC.Connection!LOADcon.ExecuteAndReturn("select rtrim(LABEL) from OE_USER_FLDS_LN where KEY_ID = '04';",V.Local.sUser4)
+F.Intrinsic.Control.If(V.Ambient.ExecuteAndReturnEOF)
+	V.Local.sUser4.Set("USER FIELD 4")
+F.Intrinsic.Control.EndIf
+F.ODBC.Connection!LOADcon.ExecuteAndReturn("select rtrim(LABEL) from OE_USER_FLDS_LN where KEY_ID = '05';",V.Local.sUser5)
+F.Intrinsic.Control.If(V.Ambient.ExecuteAndReturnEOF)
+	V.Local.sUser5.Set("USER FIELD 5")
+F.Intrinsic.Control.EndIf
+V.Global.bLOADcon.Set(False)
+F.ODBC.Connection!LOADcon.Close
+F.Data.Dictionary.SetDefaultReturn("dictCust","")
+F.Data.DataTable.FillFromDictionary("dtEstVsAct","dictCust","CUSTOMER","NAME_CUSTOMER")
+F.Data.Dictionary.Close("dictCust")
+
+F.Intrinsic.Control.CallSub(SetupGrid,"User4Title",V.Local.sUser4,"User5Title",V.Local.sUser5)
+
+F.Intrinsic.Control.CallSub(Deserialize)
+
+F.Intrinsic.Control.UnBlockEvents
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(ErrorMessage,"ScriptFile",V.Caller.ScriptFile,"CurrentSubroutine",V.Ambient.CurrentSubroutine)
+	F.Intrinsic.Control.CallSub(F_Main_UnLoad)
+F.Intrinsic.Control.EndTry
+Program.Sub.cmdRefresh_Click.End
+
+Program.Sub.SetupGrid.Start
+V.Local.sColumns.Declare
+V.Local.sCaptions.Declare
+V.Local.sNumbers.Declare
+V.Local.iCol.Declare
+V.Local.iVisibleIndex.Declare
+F.Intrinsic.Control.Try
+
+V.Local.sColumns.Set("ORDER_NO*!*ORDER_LINE*!*CUST_PO*!*JOB*!*SUFFIX*!*DATE_CLOSED*!*QUOTE_NO*!*QUOTE_LINE*!*NAME_CUSTOMER*!*PART*!*QTY_EST*!*QTY_ACT*!*LABOR_EST*!*LABOR_ACT*!*MATERIAL_EST*!*MATERIAL_ACT*!*OUTSIDE_EST*!*OUTSIDE_ACT*!*EXTENDED_EST*!*EXTENDED_ACT*!*MARGIN*!*HOURS_EST*!*HOURS_ACT*!*USER_4*!*USER_5")
+F.Intrinsic.String.Split(V.Local.sColumns,"*!*",V.Local.sColumns)
+F.Intrinsic.String.Build("Sales Order*!*Sales Order Line*!*Customer PO*!*Job*!*Suffix*!*Close Date*!*Quote*!*Quote Line*!*Customer*!*Part*!*Qty Quoted*!*Qty Completed*!*Labor Qte.*!*Labor Act.*!*Mat Qte.*!*Mat Act.*!*Outs Qte.*!*Outs Act.*!*Extended Qte.*!*Extended Act.*!*Cost Margin*!*Hours Qte.*!*Hours Act.*!*{0}*!*{1}",V.Args.User4Title,V.Args.User5Title,V.Local.sCaptions)
+F.Intrinsic.String.Split(V.Local.sCaptions,"*!*",V.Local.sCaptions)
+V.Local.sNumbers.Set("QTY_EST*!*QTY_ACT*!*LABOR_EST*!*LABOR_ACT*!*MATERIAL_EST*!*MATERIAL_ACT*!*OUTSIDE_EST*!*OUTSIDE_ACT*!*EXTENDED_EST*!*EXTENDED_ACT*!*HOURS_EST*!*HOURS_ACT")
+F.Intrinsic.String.Split(V.Local.sNumbers,"*!*",V.Local.sNumbers)
+
+Gui.F_Main.gsgcEstVsAct.AddGridviewFromDatatable("gvEstVsAct","dtEstVsAct")
+
+Gui.F_Main.gsgcEstVsAct.SetGridviewProperty("gvEstVsAct","Editable",False)
+Gui.F_Main.gsgcEstVsAct.SetGridviewProperty("gvEstVsAct","OptionsViewColumnAutoWidth",False)
+
+Gui.F_Main.gsgcEstVsAct.SetColumnProperty("gvEstVsAct","CUSTOMER","Visible",False)
+Gui.F_Main.gsgcEstVsAct.SetColumnProperty("gvEstVsAct","CUSTOMER","AllowShowHide",False)
+Gui.F_Main.gsgcEstVsAct.SetColumnProperty("gvEstVsAct","ACTORHIST","Visible",False)
+Gui.F_Main.gsgcEstVsAct.SetColumnProperty("gvEstVsAct","ACTORHIST","AllowShowHide",False)
+
+V.Local.iVisibleIndex.Set(-1)
+F.Intrinsic.Control.For(V.Local.iCol,0,V.Local.sColumns.UBound,1)
+	Gui.F_Main.gsgcEstVsAct.SetColumnProperty("gvEstVsAct",V.Local.sColumns(V.Local.iCol),"VisibleIndex",V.Local.iVisibleIndex.++)
+	Gui.F_Main.gsgcEstVsAct.SetColumnProperty("gvEstVsAct",V.Local.sColumns(V.Local.iCol),"Caption",V.Local.sCaptions(V.Local.iCol))
+	Gui.F_Main.gsgcEstVsAct.SetColumnProperty("gvEstVsAct",V.Local.sColumns(V.Local.iCol),"HeaderFontBold",True)
+F.Intrinsic.Control.Next(V.Local.iCol)
+
+F.Intrinsic.Control.For(V.Local.iCol,0,V.Local.sNumbers.UBound,1)
+	Gui.F_Main.gsgcEstVsAct.SetColumnProperty("gvEstVsAct",V.Local.sNumbers(V.Local.iCol),"DisplayCustomNumeric","#,##0.00")
+F.Intrinsic.Control.Next(V.Local.iCol)
+
+Gui.F_Main.gsgcEstVsAct.SetColumnProperty("gvEstVsAct","DATE_CLOSED","DisplayCustomDateTime","d")
+Gui.F_Main.gsgcEstVsAct.SetColumnProperty("gvEstVsAct","MARGIN","DisplayCustomNumeric","0.0 %")
+
+F.Intrinsic.Control.If(V.Global.bWOOpen,=,True,or,V.Global.bWOView,=,True)
+	Gui.F_Main.gsgcEstVsAct.SetColumnProperty("gvEstVsAct","JOB","CellForeColor","Blue")
+	Gui.F_Main.gsgcEstVsAct.SetColumnProperty("gvEstVsAct","SUFFIX","CellForeColor","Blue")
+F.Intrinsic.Control.EndIf
+
+Gui.F_Main.gsgcEstVsAct.MainView("gvEstVsAct")
+Gui.F_Main.gsgcEstVsAct.BestFitColumns("gvEstVsAct")
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(ErrorMessage,"ScriptFile",V.Caller.ScriptFile,"CurrentSubroutine",V.Ambient.CurrentSubroutine)
+	F.Intrinsic.Control.CallSub(F_Main_UnLoad)
+F.Intrinsic.Control.EndTry
+Program.Sub.SetupGrid.End
+
+Program.Sub.ExportGSGC.Start
+V.Local.sForm.Declare(String, "F_Main")
+V.Local.sControl.Declare(String, "gsgcEstVsAct")
+V.Local.sFileExport.Declare
+V.Local.sMsg.Declare
+V.Local.sDate.Declare
+V.Local.sTime.Declare
+V.Local.bExcel.Declare
+V.Local.bFileLocked.Declare
+F.Intrinsic.Control.Try
+
+F.Intrinsic.Control.If(V.DataTable.dtEstVsAct.Exists,=,False)
+	F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.EndIf
+
+'Arc Number - 6195
+F.Automation.MSExcel.CheckPresence(V.Local.bExcel)
+F.Intrinsic.String.DateString(V.Ambient.Date,V.Local.sDate)
+F.Intrinsic.String.TimeString(V.Ambient.Time,V.Local.sTime)
+F.Intrinsic.Control.If(V.Local.bExcel)
+	F.Intrinsic.String.Build("{0}\GCG_6195_{1}_Export_{2}_{3}.xlsx",V.Caller.LocalGSSTempDir,V.Local.sControl,V.Local.sDate,V.Local.sTime,V.Local.sFileExport)
+	F.Intrinsic.File.IsFileLocked(V.Local.sFileExport,V.Local.bFileLocked)
+	F.Intrinsic.Control.If(V.Local.bFileLocked)
+		F.Intrinsic.String.Build("File is already open. Please close and export again.{0}File : {1}",V.Ambient.NewLine,V.Local.sFileExport,V.Local.sMsg)
+		F.Intrinsic.UI.Msgbox(V.Local.sMsg,"File In Use")
+	F.Intrinsic.Control.Else
+		Gui.[V.Local.sForm].[V.Local.sControl].Export(V.Local.sFileExport,"xlsx")
+		F.Intrinsic.Task.ShellExec(0,"",V.Local.sFileExport,"","",1)
+	F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.Else
+	F.Intrinsic.String.Build("{0}\GCG_6195_{1}_Export_{2}_{3}.csv",V.Caller.LocalGssTempDir,V.Local.sControl,V.Local.sDate,V.Local.sTime,V.Local.sFileExport)
+	F.Intrinsic.File.IsFileLocked(V.Local.sFileExport,V.Local.bFileLocked)
+	F.Intrinsic.Control.If(V.Local.bFileLocked)
+		F.Intrinsic.String.Build("File is already open. Please close and export again.{0}File: {1}",V.Ambient.NewLine,V.Local.sFileExport,V.Local.sMsg)
+		F.Intrinsic.UI.Msgbox(V.Local.sMsg,"File In Use")
+	F.Intrinsic.Control.Else
+		Gui.[V.Local.sForm].[V.Local.sControl].Export(V.Local.sFileExport,"csv")
+	F.Intrinsic.Control.EndIf
+	F.Intrinsic.Task.ShellExec(0,"",V.Local.sFileExport,"","",1)
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(ErrorMessage,"ScriptFile",V.Caller.ScriptFile,"CurrentSubroutine",V.Ambient.CurrentSubroutine)
+	F.Intrinsic.Control.CallSub(F_Main_UnLoad)
+F.Intrinsic.Control.EndTry
+Program.Sub.ExportGSGC.End
+
+Program.Sub.Serialize.Start
+V.Local.Serialize.Declare
+F.Intrinsic.Control.Try
+
+'GridView - GVESTVSACT
+Gui.F_Main.gsgcEstVsAct.Serialize("GVESTVSACT",V.Local.Serialize)
+F.Global.Registry.AddValue(V.Caller.User,V.Caller.CompanyCode,"GVESTVSACT",6195,1000,False,"Serialize",False,0,-999.0,1/1/1980,12:00:00 AM,V.Local.Serialize)
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(ErrorMessage,"ScriptFile",V.Caller.ScriptFile,"CurrentSubroutine",V.Ambient.CurrentSubroutine)
+F.Intrinsic.Control.EndTry
+Program.Sub.Serialize.End
+
+Program.Sub.Deserialize.Start
+V.Local.Serialize.Declare
+F.Intrinsic.Control.Try
+
+'GridView - GVESTVSACT
+F.Global.Registry.ReadValue(V.Caller.User,V.Caller.CompanyCode,"GVESTVSACT",6195,1000,6,"",V.Local.Serialize)
+F.Intrinsic.Control.If(V.Local.Serialize.Trim,<>,"")
+	Gui.F_Main.gsgcEstVsAct.Deserialize(V.Local.Serialize)
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(ErrorMessage,"ScriptFile",V.Caller.ScriptFile,"CurrentSubroutine",V.Ambient.CurrentSubroutine)
+	F.Intrinsic.Control.CallSub(F_Main_UnLoad)
+F.Intrinsic.Control.EndTry
+Program.Sub.Deserialize.End
+
+Program.Sub.gsgcEstVsAct_RowCellClick.Start
+V.Local.sMsg.Declare
+F.Intrinsic.Control.Try
+
+F.Intrinsic.Control.If(V.Args.Button.UCase,=,"RIGHT")
+	F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.SelectCase(V.Args.Column.UCase)
+	F.Intrinsic.Control.CaseAny("JOB","SUFFIX")
+		F.Intrinsic.Control.If(V.Global.bWOOpen,=,True,or,V.Global.bWOView,=,True)
+			F.Intrinsic.Control.If(V.Screen.F_Main!optView.Value)
+				'View WO
+				F.Data.DataTable.AddRow("450000","Mode","7","WONum",V.DataTable.dtEstVsAct(V.Args.RowIndex).JOB!FieldVal,"WOSuffix",V.DataTable.dtEstVsAct(V.Args.RowIndex).SUFFIX!FieldVal,"ActOrHist",V.DataTable.dtEstVsAct(V.Args.RowIndex).ACTORHIST!FieldVal)
+				F.Intrinsic.Control.BlockEvents
+				F.Intrinsic.Control.CallSub(450000Sync)
+				F.Intrinsic.Control.UnBlockEvents
+			F.Intrinsic.Control.ElseIf(V.Screen.F_Main!optEdit.Value)
+				'Open WO
+				F.Intrinsic.Control.If(V.DataTable.dtEstVsAct(V.Args.RowIndex).ACTORHIST!FieldVal,=,"A")
+					F.Data.DataTable.AddRow("2009","WONum",V.DataTable.dtEstVsAct(V.Args.RowIndex).JOB!FieldVal,"WOSuffix",V.DataTable.dtEstVsAct(V.Args.RowIndex).SUFFIX!FieldVal,"Switch","O")
+					F.Intrinsic.Control.BlockEvents
+					F.Intrinsic.Control.CallSub(2009Sync)
+					F.Intrinsic.Control.UnBlockEvents
+				F.Intrinsic.Control.Else
+					F.Intrinsic.String.Build("WO {0}",V.DataTable.dtEstVsAct(V.Args.RowIndex).JOB!FieldVal,V.Local.sMsg)
+					F.Intrinsic.Control.If(V.DataTable.dtEstVsAct(V.Args.RowIndex).SUFFIX!FieldValTrim,!=,"")
+						F.Intrinsic.String.Build("{0}-{1}",V.Local.sMsg,V.DataTable.dtEstVsAct(V.Args.RowIndex).SUFFIX!FieldVal,V.Local.sMsg)
+					F.Intrinsic.Control.EndIf
+					F.Intrinsic.String.Build("{0} is flagged as a WO in history and cannot be opened for editing.",V.Local.sMsg,V.Local.sMsg)
+					F.Intrinsic.UI.Msgbox(V.Local.sMsg,"CANCELING OPEN WO")
+				F.Intrinsic.Control.EndIf
+			F.Intrinsic.Control.EndIf
+		F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.EndSelect
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(ErrorMessage,"ScriptFile",V.Caller.ScriptFile,"CurrentSubroutine",V.Ambient.CurrentSubroutine)
+	F.Intrinsic.Control.CallSub(F_Main_UnLoad)
+F.Intrinsic.Control.EndTry
+Program.Sub.gsgcEstVsAct_RowCellClick.End
+
+Program.Sub.Comments.Start
+${$5$}$2.0.0.0$}$2
+${$6$}$triley$}$20231009105359926$}$iK6nerqp9nur1h1iSBfRKBBz1ENCgYv6g64z+8p/2K02MMWGnEizdUC6dx3V1rdN+zcceXL4S+4=
+Program.Sub.Comments.End
